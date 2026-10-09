@@ -6,6 +6,13 @@ import { AFTER_EXIT_TIME, wheelExtent, type WheelSim } from '../lib/wheel'
 const ZOOM_SECONDS = Math.min(0.55, AFTER_EXIT_TIME)
 /** Marge autour de la roue, en proportion de la demi-largeur du dessin. */
 const MARGIN = 0.03
+/** Au-delà, les écrans très denses coûtent cher à dessiner sans gain visible sur des boules en mouvement. */
+const MAX_PIXEL_RATIO = 2
+/** Place laissée autour d'une boule dans son image, en rayons : assez pour le halo, ou juste le bord. */
+const HALO_PADDING = 1
+const PLAIN_PADDING = 0.04
+/** Rayon maximal de l'image de la boule tirée utilisée pour le zoom, en pixels. */
+const MAX_ZOOM_RADIUS = 512
 
 interface WheelDrawProps {
   sim: WheelSim
@@ -97,6 +104,20 @@ function drawDrum(context: CanvasRenderingContext2D, sim: WheelSim, time: number
   }
 }
 
+/**
+ * Dessine une boule une fois pour toutes dans une image à part. La recopier à chaque image
+ * de l'animation coûte bien moins cher que de refaire son dégradé, son texte et son halo.
+ */
+function makeSprite(radius: number, label: number, highlighted: boolean, lucky: boolean) {
+  const sprite = document.createElement('canvas')
+  const half = Math.ceil(radius * (1 + (highlighted ? HALO_PADDING : PLAIN_PADDING)))
+  sprite.width = 2 * half
+  sprite.height = 2 * half
+  const context = sprite.getContext('2d')
+  if (context) drawBall(context, half, half, radius, label, highlighted, lucky)
+  return sprite
+}
+
 export function WheelDraw({ sim, marked, sounds, onDone }: WheelDrawProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const finish = useEffectEvent(onDone)
@@ -113,8 +134,12 @@ export function WheelDraw({ sim, marked, sounds, onDone }: WheelDrawProps) {
     const lastFrame = sim.frames.length - 1
     const totalSeconds = lastFrame / sim.frameRate
     const zoomStart = totalSeconds - ZOOM_SECONDS
+    const winner = sim.winner
     let start: number | null = null
     let request = 0
+    let sprites: HTMLCanvasElement[] = []
+    let winnerHalo: HTMLCanvasElement | null = null
+    let winnerZoom: HTMLCanvasElement | null = null
 
     const render = (now: number) => {
       // L'horloge démarre à la première image : l'horodatage d'une image peut précéder l'appel.
@@ -125,14 +150,22 @@ export function WheelDraw({ sim, marked, sounds, onDone }: WheelDrawProps) {
         return
       }
 
-      const size = Math.round(canvas.clientWidth * window.devicePixelRatio)
-      if (canvas.width !== size) {
-        canvas.width = size
-        canvas.height = size
-      }
+      const pixelRatio = Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO)
+      const size = Math.round(canvas.clientWidth * pixelRatio)
       const half = size / 2
       const scale = (half * (1 - MARGIN)) / wheelExtent(sim.ballRadius)
       const radius = sim.ballRadius * scale
+      if (canvas.width !== size || !winnerHalo || !winnerZoom) {
+        canvas.width = size
+        canvas.height = size
+        const label = sim.numbers[winner]
+        sprites = sim.numbers.map((n) => makeSprite(radius, n, false, isLucky(n)))
+        winnerHalo = makeSprite(radius, label, true, isLucky(label))
+        // La boule tirée en grand, pour le zoom final : la réduire reste net et coûte peu.
+        winnerZoom = makeSprite(Math.min(half, MAX_ZOOM_RADIUS), label, false, isLucky(label))
+      }
+      const stamp = (sprite: HTMLCanvasElement, x: number, y: number) =>
+        context.drawImage(sprite, x - sprite.width / 2, y - sprite.height / 2)
 
       // Position des boules : interpolation entre deux images de la simulation.
       const position = Math.min(time * sim.frameRate, lastFrame)
@@ -150,24 +183,24 @@ export function WheelDraw({ sim, marked, sounds, onDone }: WheelDrawProps) {
 
       context.globalAlpha = 1 - eased
       drawDrum(context, sim, time, scale)
-      sim.numbers.forEach((label, i) => {
-        if (i !== sim.winner) {
-          drawBall(context, at(2 * i), at(2 * i + 1), radius, label, false, isLucky(label))
-        }
+      sprites.forEach((sprite, i) => {
+        if (i !== winner) stamp(sprite, at(2 * i), at(2 * i + 1))
       })
 
       context.globalAlpha = 1
-      const exited = time >= sim.exitTime
-      const winner = sim.winner
-      drawBall(
-        context,
-        at(2 * winner) * (1 - eased),
-        at(2 * winner + 1) * (1 - eased),
-        radius + (half - radius) * eased,
-        sim.numbers[winner],
-        exited && zoom === 0,
-        isLucky(sim.numbers[winner]),
-      )
+      if (zoom === 0) {
+        stamp(time >= sim.exitTime ? winnerHalo : sprites[winner], at(2 * winner), at(2 * winner + 1))
+      } else {
+        // Pendant le zoom, la grande image de la boule est recopiée à la taille voulue.
+        const extent = (radius + (half - radius) * eased) * (1 + PLAIN_PADDING)
+        context.drawImage(
+          winnerZoom,
+          at(2 * winner) * (1 - eased) - extent,
+          at(2 * winner + 1) * (1 - eased) - extent,
+          2 * extent,
+          2 * extent,
+        )
+      }
 
       request = requestAnimationFrame(render)
     }

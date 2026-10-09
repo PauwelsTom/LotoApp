@@ -66,7 +66,7 @@ const BALL_RESTITUTION = 0.92
 const EDGE_RESTITUTION = 0.4
 /** Pics fixés sur la paroi : ils soulèvent les boules et les projettent pour les mélanger. */
 const SPIKE_COUNT = 4
-const SPIKE_HEIGHT = 0.15
+const SPIKE_HEIGHT = 0.075
 const SPIKE_THICKNESS = 0.015
 const SPIKE_RESTITUTION = 0.7
 const MAX_ATTEMPTS = 400
