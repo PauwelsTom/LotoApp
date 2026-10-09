@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useRef } from 'react'
+import { playWheel } from '../lib/sound'
 import { AFTER_EXIT_TIME, wheelExtent, type WheelSim } from '../lib/wheel'
 
 /** Durée du zoom final : la boule sortie vient remplir l'écran. Avant cela, elle reste en évidence. */
@@ -10,6 +11,8 @@ interface WheelDrawProps {
   sim: WheelSim
   /** Numéros dont la boule est verte. */
   marked: number[]
+  /** Joue les bruits de chocs et de sortie de la boule. */
+  sounds: boolean
   onDone: () => void
 }
 
@@ -94,7 +97,7 @@ function drawDrum(context: CanvasRenderingContext2D, sim: WheelSim, time: number
   }
 }
 
-export function WheelDraw({ sim, marked, onDone }: WheelDrawProps) {
+export function WheelDraw({ sim, marked, sounds, onDone }: WheelDrawProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const finish = useEffectEvent(onDone)
   const isLucky = useEffectEvent((label: number) => marked.includes(label))
@@ -169,9 +172,13 @@ export function WheelDraw({ sim, marked, onDone }: WheelDrawProps) {
       request = requestAnimationFrame(render)
     }
 
+    const stopSound = sounds ? playWheel(sim) : null
     request = requestAnimationFrame(render)
-    return () => cancelAnimationFrame(request)
-  }, [sim])
+    return () => {
+      cancelAnimationFrame(request)
+      stopSound?.()
+    }
+  }, [sim, sounds])
 
   return <canvas ref={canvasRef} className="wheel" role="img" aria-label="Tirage en cours" />
 }

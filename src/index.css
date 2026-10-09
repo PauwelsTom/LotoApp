@@ -231,12 +231,13 @@ input {
 .actions {
   grid-area: actions;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   padding: 0.75rem 1rem 1rem;
 }
 
 .actions .btn {
-  flex: 1;
+  flex: 1 1 40%;
 }
 
 /* ---------- Boutons ---------- */
@@ -264,6 +265,12 @@ input {
   border-color: transparent;
   background: var(--gold);
   color: var(--ink);
+}
+
+.btn.lucky {
+  border-color: transparent;
+  background: var(--ok);
+  color: #032411;
 }
 
 .btn.danger {
@@ -413,16 +420,39 @@ button.num {
   touch-action: manipulation;
 }
 
-button.num:disabled {
-  cursor: default;
-}
-
 button.num:focus-visible {
   outline: 2px solid #fff;
   outline-offset: 1px;
 }
 
-/* Numéro attendu : contour vert tant qu'il n'est pas sorti, fond vert ensuite. */
+/* Page « Numéros gagnants » : uniquement les numéros restants, en grandes cases. */
+.pickgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.4rem, 1fr));
+  gap: 0.45rem;
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+.pickgrid .num {
+  height: 3.2rem;
+  font-size: 1.3rem;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.pickgrid .num.marked {
+  background: var(--ok);
+  box-shadow: none;
+  color: #032411;
+}
+
+.pick-hint {
+  max-width: 48rem;
+  margin: 0 auto 0.75rem;
+}
+
+/* Numéro gagnant : contour vert tant qu'il n'est pas sorti, fond vert ensuite. */
 .num.marked {
   box-shadow: inset 0 0 0 2px var(--ok);
   color: var(--ok);
@@ -432,14 +462,6 @@ button.num:focus-visible {
   background: var(--ok);
   box-shadow: none;
   color: #032411;
-}
-
-.numgrid-hint {
-  max-width: 48rem;
-  margin: 0.75rem auto 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-  text-align: center;
 }
 
 .card-result {
@@ -564,14 +586,40 @@ button.num:focus-visible {
   font-weight: 600;
 }
 
-.setting.toggle {
-  flex-direction: row;
+.setting .toggle {
+  display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
   cursor: pointer;
 }
 
-.setting.toggle input {
+.slider {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.slider span {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.slider output {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.slider input {
+  width: 100%;
+  height: 2rem;
+  margin: 0;
+  accent-color: var(--gold);
+  touch-action: pan-y;
+}
+
+.setting .toggle input {
   flex: none;
   width: 1.6rem;
   height: 1.6rem;
@@ -707,7 +755,7 @@ button.num:focus-visible {
   }
 
   .actions {
-    flex-direction: column;
+    flex-flow: column nowrap;
     align-items: center;
     justify-content: center;
     padding: 0.75rem 0.5rem;

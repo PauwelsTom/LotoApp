@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { isValidBallCount, MAX_BALLS, MIN_BALLS, type DrawAnimation, type Game } from '../lib/game'
+import { playTick, setSoundVolume } from '../lib/sound'
+import { speak } from '../lib/speech'
 import { WHEEL_MAX_BALLS } from '../lib/wheel'
 import { Confirm } from './Confirm'
 import { Panel } from './Panel'
@@ -8,6 +10,7 @@ interface SettingsProps {
   game: Game
   onChangeMaxBalls: (maxBalls: number) => void
   onToggleVoice: (voice: boolean) => void
+  onChangeSoundVolume: (volume: number) => void
   onChangeAnimation: (animation: DrawAnimation) => void
   onOpenQr: () => void
   onClose: () => void
@@ -26,6 +29,7 @@ export function Settings({
   game,
   onChangeMaxBalls,
   onToggleVoice,
+  onChangeSoundVolume,
   onChangeAnimation,
   onOpenQr,
   onClose,
@@ -36,6 +40,7 @@ export function Settings({
   const count = Number(value)
   const valid = value.trim() !== '' && isValidBallCount(count)
   const changed = valid && count !== game.maxBalls
+  const percent = Math.round(game.soundVolume * 100)
 
   const apply = () => {
     if (!changed) return
@@ -75,14 +80,39 @@ export function Settings({
           )}
         </form>
 
-        <label className="setting toggle">
-          <span>Annoncer les numéros à voix haute</span>
-          <input
-            type="checkbox"
-            checked={game.voice}
-            onChange={(event) => onToggleVoice(event.target.checked)}
-          />
-        </label>
+        <div className="setting">
+          <label className="toggle">
+            <span>Annoncer les numéros à voix haute</span>
+            <input
+              type="checkbox"
+              checked={game.voice}
+              onChange={(event) => onToggleVoice(event.target.checked)}
+            />
+          </label>
+          <label className="slider">
+            <span>
+              Volume des bruitages
+              <output>{percent === 0 ? 'Coupé' : `${percent} %`}</output>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={percent}
+              onChange={(event) => {
+                const volume = Number(event.target.value) / 100
+                onChangeSoundVolume(volume)
+                // Un cliquetis d'exemple, pour entendre le nouveau volume.
+                setSoundVolume(volume)
+                if (volume > 0) playTick()
+              }}
+            />
+          </label>
+          <button className="btn" onClick={() => speak('Test son')}>
+            Test son
+          </button>
+        </div>
 
         <fieldset className="setting">
           <legend>Animation du tirage</legend>

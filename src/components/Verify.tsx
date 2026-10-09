@@ -7,7 +7,6 @@ interface VerifyProps {
   card: Card | null
   onScan: () => void
   onClearCard: () => void
-  onToggleMark: (n: number) => void
   onClose: () => void
 }
 
@@ -52,7 +51,7 @@ function CardResult({ card, game, onClear }: { card: Card; game: Game; onClear: 
   )
 }
 
-export function Verify({ game, card, onScan, onClearCard, onToggleMark, onClose }: VerifyProps) {
+export function Verify({ game, card, onScan, onClearCard, onClose }: VerifyProps) {
   const drawn = new Set(game.drawn)
   const marked = new Set(game.marked)
   const numbers = Array.from({ length: game.maxBalls }, (_, i) => i + 1)
@@ -71,20 +70,14 @@ export function Verify({ game, card, onScan, onClearCard, onToggleMark, onClose 
       {card && <CardResult card={card} game={game} onClear={onClearCard} />}
       <div className="numgrid">
         {numbers.map((n) => (
-          <button
+          <span
             className={['num', drawn.has(n) && 'on', marked.has(n) && 'marked'].filter(Boolean).join(' ')}
             key={n}
-            disabled={drawn.has(n)}
-            aria-pressed={marked.has(n)}
-            onClick={() => onToggleMark(n)}
           >
             {n}
-          </button>
+          </span>
         ))}
       </div>
-      <p className="numgrid-hint">
-        Touchez un numéro pas encore sorti pour l'attendre : sa boule sera verte.
-      </p>
     </Panel>
   )
 }

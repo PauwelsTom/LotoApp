@@ -7,6 +7,15 @@
  * l'axe y pointe vers le bas et les angles croissent dans le sens horaire.
  */
 
+/** Un choc pendant la simulation, utilisé pour les bruitages. */
+export interface WheelImpact {
+  time: number
+  /** Force du choc, de 0 à 1. */
+  strength: number
+  /** Vrai pour un choc contre la paroi ou un pic, faux pour un choc entre boules. */
+  wall: boolean
+}
+
 export interface WheelSim {
   /** Numéro porté par chaque boule. */
   numbers: number[]
@@ -27,6 +36,7 @@ export interface WheelSim {
   exitTime: number
   /** Indice de la boule sortie. */
   winner: number
+  impacts: WheelImpact[]
 }
 
 /** La roue n'est utilisée que s'il reste moins de boules que cette limite. */
@@ -60,6 +70,11 @@ const SPIKE_HEIGHT = 0.15
 const SPIKE_THICKNESS = 0.015
 const SPIKE_RESTITUTION = 0.7
 const MAX_ATTEMPTS = 400
+/** Vitesse de choc minimale pour produire un bruit, et vitesse donnant le bruit le plus fort. */
+const IMPACT_MIN_SPEED = 0.8
+const IMPACT_FULL_SPEED = 5
+/** Écart minimal entre deux bruits de choc, en secondes. */
+const IMPACT_SPACING = 0.03
 /** Demi-largeur de la trappe, en rayons de boule (1 = la boule passe tout juste). */
 const HOLE_WIDTH = 1.3
 
@@ -130,11 +145,20 @@ function runAttempt(numbers: number[], seed: number): WheelSim | null {
   const vy = Array.from({ length: count }, () => (random() - 0.5) * 2)
 
   const frames: Float32Array[] = []
+  const impacts: WheelImpact[] = []
   let winner = -1
   let exitTime = 0
+  let now = 0
+
+  const recordImpact = (speed: number, wall: boolean) => {
+    if (speed < IMPACT_MIN_SPEED) return
+    if (impacts.length > 0 && now - impacts[impacts.length - 1].time < IMPACT_SPACING) return
+    impacts.push({ time: now, strength: Math.min(1, speed / IMPACT_FULL_SPEED), wall })
+  }
 
   for (let step = 0; ; step++) {
     const time = step * STEP
+    now = time
     if (winner < 0 && time > MAX_EXIT_TIME) return null
     if (winner >= 0 && time > exitTime + AFTER_EXIT_TIME) break
 
@@ -184,6 +208,7 @@ function runAttempt(numbers: number[], seed: number): WheelSim | null {
           y[j] += ny * overlap
           const approach = (vx[j] - vx[i]) * nx + (vy[j] - vy[i]) * ny
           if (approach < 0) {
+            recordImpact(-approach, false)
             const impulse = (-(1 + BALL_RESTITUTION) * approach) / 2
             vx[i] -= impulse * nx
             vy[i] -= impulse * ny
@@ -217,6 +242,7 @@ function runAttempt(numbers: number[], seed: number): WheelSim | null {
         // Vitesse relative au pic, qui tourne avec le tambour.
         const approach = (vx[i] + OMEGA * py) * nx + (vy[i] - OMEGA * px) * ny
         if (approach < 0) {
+          recordImpact(-approach, true)
           vx[i] -= (1 + SPIKE_RESTITUTION) * approach * nx
           vy[i] -= (1 + SPIKE_RESTITUTION) * approach * ny
         }
@@ -237,7 +263,10 @@ function runAttempt(numbers: number[], seed: number): WheelSim | null {
         y[i] = ny * limit
         let normal = vx[i] * nx + vy[i] * ny
         let tangent = -vx[i] * ny + vy[i] * nx
-        if (normal > 0) normal = -normal * WALL_RESTITUTION
+        if (normal > 0) {
+          recordImpact(normal, true)
+          normal = -normal * WALL_RESTITUTION
+        }
         // La paroi entraîne les boules dans sa rotation.
         tangent += (OMEGA * limit - tangent) * WALL_FRICTION
         vx[i] = normal * nx - tangent * ny
@@ -288,6 +317,7 @@ function runAttempt(numbers: number[], seed: number): WheelSim | null {
     openTime: OPEN_TIME,
     exitTime,
     winner,
+    impacts,
   }
 }
 

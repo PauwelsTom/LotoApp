@@ -5,14 +5,16 @@ import { Scanner } from './components/Scanner'
 import { Settings } from './components/Settings'
 import { Verify } from './components/Verify'
 import { WheelDraw } from './components/WheelDraw'
+import { Winners } from './components/Winners'
 import { missingNumbers, type Card } from './lib/card'
 import { celebrate } from './lib/confetti'
 import { loadGame, pickRandom, remainingBalls, saveGame } from './lib/game'
+import { playTick, setSoundVolume } from './lib/sound'
 import { speakNumber, stopSpeech, unlockSpeech } from './lib/speech'
 import { useWakeLock } from './lib/useWakeLock'
 import { simulateWheel, WHEEL_MAX_BALLS, type WheelSim } from './lib/wheel'
 
-type View = 'draw' | 'verify' | 'scan' | 'settings' | 'qr'
+type View = 'draw' | 'verify' | 'scan' | 'winners' | 'settings' | 'qr'
 
 const ROLL_DURATION_MS = 1600
 const ROLL_TICK_MS = 80
@@ -39,7 +41,8 @@ export default function App() {
     }
   }, [])
 
-  const { drawn, maxBalls, voice, marked } = game
+  const { drawn, maxBalls, voice, soundVolume, marked } = game
+  const sounds = soundVolume > 0
   const rolling = rollValue !== null || wheel !== null
   const finished = drawn.length >= maxBalls
   const current = rollValue ?? drawn.at(-1)
@@ -54,6 +57,7 @@ export default function App() {
     if (rolling || finished || timers.current.end !== undefined) return
     const remaining = remainingBalls(game)
     if (voice) unlockSpeech()
+    if (sounds) setSoundVolume(soundVolume)
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (game.animation === 'wheel' && remaining.length < WHEEL_MAX_BALLS && !reducedMotion) {
@@ -71,6 +75,7 @@ export default function App() {
     setRollValue(pickRandom(remaining))
     timers.current.tick = window.setInterval(() => {
       setRollValue(1 + Math.floor(Math.random() * maxBalls))
+      if (sounds) playTick()
     }, ROLL_TICK_MS)
     timers.current.end = window.setTimeout(() => {
       window.clearInterval(timers.current.tick)
@@ -123,6 +128,7 @@ export default function App() {
             <WheelDraw
               sim={wheel}
               marked={marked}
+              sounds={sounds}
               onDone={() => {
                 setWheel(null)
                 reveal(wheel.numbers[wheel.winner])
@@ -154,18 +160,21 @@ export default function App() {
         </div>
 
         <nav className="actions">
+          <button className="btn primary" onClick={() => setView('verify')} disabled={rolling}>
+            Vérification
+          </button>
+          <button className="btn lucky" onClick={() => setView('winners')} disabled={rolling}>
+            Numéros gagnants
+          </button>
+          <button className="btn" onClick={() => setView('settings')} disabled={rolling}>
+            Paramètres
+          </button>
           <button
             className="btn danger"
             onClick={() => setConfirmReset(true)}
             disabled={rolling || drawn.length === 0}
           >
             Reset
-          </button>
-          <button className="btn primary" onClick={() => setView('verify')} disabled={rolling}>
-            Vérification
-          </button>
-          <button className="btn" onClick={() => setView('settings')} disabled={rolling}>
-            Paramètres
           </button>
         </nav>
       </main>
@@ -176,7 +185,13 @@ export default function App() {
           card={card}
           onScan={() => setView('scan')}
           onClearCard={() => setCard(null)}
-          onToggleMark={(n) =>
+          onClose={() => setView('draw')}
+        />
+      )}
+      {view === 'winners' && (
+        <Winners
+          game={game}
+          onToggle={(n) =>
             setGame({
               ...game,
               marked: marked.includes(n) ? marked.filter((m) => m !== n) : [...marked, n],
@@ -195,6 +210,7 @@ export default function App() {
             setGame({ ...game, maxBalls: count, drawn: [], marked: [] })
           }}
           onToggleVoice={(enabled) => setGame({ ...game, voice: enabled })}
+          onChangeSoundVolume={(value) => setGame({ ...game, soundVolume: value })}
           onChangeAnimation={(animation) => setGame({ ...game, animation })}
           onOpenQr={() => setView('qr')}
           onClose={() => setView('draw')}

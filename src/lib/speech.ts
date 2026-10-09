@@ -14,15 +14,19 @@ export function unlockSpeech(): void {
   speechSynthesis.speak(utterance)
 }
 
-export function speakNumber(n: number): void {
+export function speak(text: string): void {
   if (!supported) return
-  const utterance = new SpeechSynthesisUtterance(String(n))
+  const utterance = new SpeechSynthesisUtterance(text)
   utterance.lang = 'fr-FR'
   const voice = speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith('fr'))
   if (voice) utterance.voice = voice
   utterance.rate = 0.9
   speechSynthesis.cancel()
   speechSynthesis.speak(utterance)
+}
+
+export function speakNumber(n: number): void {
+  speak(String(n))
 }
 
 export function stopSpeech(): void {

@@ -4,6 +4,8 @@ export interface Game {
   maxBalls: number
   drawn: number[]
   voice: boolean
+  /** Volume des bruitages du tirage, de 0 (muet) à 1. */
+  soundVolume: number
   animation: DrawAnimation
   /** Numéros attendus, choisis par l'animateur : leur boule est verte et leur tirage est fêté. */
   marked: number[]
@@ -13,10 +15,12 @@ export const MIN_BALLS = 5
 export const MAX_BALLS = 100
 
 const STORAGE_KEY = 'loto-game-v1'
+const DEFAULT_SOUND_VOLUME = 0.5
 const DEFAULT_GAME: Game = {
   maxBalls: 90,
   drawn: [],
   voice: true,
+  soundVolume: DEFAULT_SOUND_VOLUME,
   animation: 'classic',
   marked: [],
 }
@@ -41,6 +45,13 @@ export function loadGame(): Game {
       maxBalls,
       drawn: [...new Set(drawn)],
       voice: saved.voice !== false,
+      soundVolume:
+        typeof saved.soundVolume === 'number' && saved.soundVolume >= 0 && saved.soundVolume <= 1
+          ? saved.soundVolume
+          : // Ancienne sauvegarde : les bruitages étaient une simple case à cocher.
+            (saved as { sounds?: boolean }).sounds === false
+            ? 0
+            : DEFAULT_SOUND_VOLUME,
       animation: saved.animation === 'wheel' ? 'wheel' : 'classic',
       marked: [...new Set(marked)],
     }
